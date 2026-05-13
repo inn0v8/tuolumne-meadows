@@ -1,0 +1,278 @@
+{
+  "funnel_id": "personal-loan-consolidation",
+  "funnel_name": "Personal Loan for Credit Card Consolidation",
+  "total_steps": 5,
+  "estimated_time_minutes": 3,
+  "steps": [
+    {
+      "id": "identity_verification",
+      "order": 1,
+      "label": "Verify your identity",
+      "instructions": "Use the Spinwheel proxy to verify the user's identity via phone + DOB + OTP. After verification, the user's name, address, and SSN last-4 are auto-populated. DO NOT ask for name, address, or SSN manually — Spinwheel provides them.",
+      "spinwheel_flow": true,
+      "fields": [
+        {
+          "id": "phone",
+          "type": "phone",
+          "label": "Phone number",
+          "required": true,
+          "ask_as": "Let's get started. What's your mobile phone number? We'll send you a quick verification code.",
+          "help": "We use your phone number to verify your identity securely via Spinwheel. A text message with a one-time code will be sent.",
+          "validation": { "pattern": "^[\\d\\s\\-\\(\\)\\+]{10,15}$" },
+          "grouping": "ask_alone",
+          "sensitivity": "personal"
+        },
+        {
+          "id": "dob",
+          "type": "date",
+          "label": "Date of birth",
+          "required": true,
+          "ask_as": "And what's your date of birth?",
+          "validation": { "min_age": 18, "format": "YYYY-MM-DD" },
+          "grouping": "ask_with_previous",
+          "sensitivity": "personal"
+        }
+      ],
+      "after_fields_collected": {
+        "action": "call_api",
+        "endpoint": "/api/sw/connect",
+        "method": "POST",
+        "body_mapping": { "phone": "phone", "dob": "dob" },
+        "on_success": "Tell the user a verification code was sent to their phone. Ask them to share the code.",
+        "on_failure": "Tell the user verification couldn't be initiated. Offer to try again or use the website instead."
+      },
+      "otp_field": {
+        "id": "otp_code",
+        "type": "text",
+        "label": "Verification code",
+        "required": true,
+        "ask_as": "I just sent a 6-digit code to your phone. What's the code?",
+        "validation": { "pattern": "^[0-9]{6}$" },
+        "after_collected": {
+          "action": "call_api",
+          "endpoint": "/api/sw/verify",
+          "method": "POST",
+          "body_mapping": { "session_token": "$session_token", "otp_code": "otp_code" },
+          "on_success": "Show the user their verified identity (name, address). Ask them to confirm it's correct. Then proceed to pull their debt profile.",
+          "on_failure": "Tell the user the code didn't work. Offer to resend."
+        }
+      }
+    },
+    {
+      "id": "debt_profile",
+      "order": 2,
+      "label": "Your current debts",
+      "instructions": "Call the debt profile endpoint to pull all the user's liabilities from their credit report. Present the credit cards with balances and let the user select which ones they want to consolidate into a personal loan. For eligible cards, offer to refresh real-time balances.",
+      "spinwheel_flow": true,
+      "auto_populate": {
+        "action": "call_api",
+        "endpoint": "/api/sw/debt-profile",
+        "method": "POST",
+        "body_mapping": { "session_token": "$session_token" },
+        "on_success": "Present the debt profile to the user. Show all credit cards with their balances, credit limits, and utilization. Then ask the user to select which credit cards they want to pay off with the personal loan.",
+        "on_failure": "Tell the user we couldn't pull their debt profile. Fall back to asking them to manually enter their monthly debt payments."
+      },
+      "fields": [
+        {
+          "id": "selected_cards",
+          "type": "multi_select_dynamic",
+          "label": "Credit cards to consolidate",
+          "required": true,
+          "ask_as": "Here are your credit cards. Which ones would you like to consolidate into a personal loan? You can select all of them or just some.",
+          "options_source": "debt_profile.credit_cards",
+          "option_display": "{display_name} — {masked_number} — Balance: ${current_balance}",
+          "filter": { "selectable": true },
+          "help": "Consolidating high-interest credit card debt into a lower-rate personal loan can save you money on interest and simplify your payments into one monthly bill.",
+          "grouping": "ask_alone",
+          "sensitivity": "financial"
+        },
+        {
+          "id": "consolidation_amount",
+          "type": "currency",
+          "label": "Total consolidation amount",
+          "required": true,
+          "auto_calculate": "sum of selected_cards current_balance",
+          "ask_as": "Based on your selections, the total you'd be consolidating is ${calculated_amount}. Does that look right, or would you like to adjust?",
+          "validation": { "min": 1000, "max": 250000 },
+          "format": { "currency": "USD", "precision": 0 },
+          "grouping": "ask_with_previous",
+          "sensitivity": "financial"
+        }
+      ]
+    },
+    {
+      "id": "personal_info",
+      "order": 3,
+      "label": "Confirm your information",
+      "instructions": "These fields are PRE-POPULATED from Spinwheel identity verification. Present them to the user for confirmation. Only ask for fields that weren't returned by Spinwheel (like email, which Spinwheel doesn't provide).",
+      "fields": [
+        {
+          "id": "full_name",
+          "type": "text",
+          "label": "Full legal name",
+          "required": true,
+          "auto_populated_from": "identity.full_name",
+          "ask_as": "I have your name as {identity.full_name}. Is that correct?",
+          "grouping": "batch_ok",
+          "sensitivity": "personal"
+        },
+        {
+          "id": "address_street",
+          "type": "text",
+          "label": "Street address",
+          "required": true,
+          "auto_populated_from": "identity.address.street",
+          "grouping": "batch_ok",
+          "sensitivity": "personal"
+        },
+        {
+          "id": "address_city",
+          "type": "text",
+          "label": "City",
+          "required": true,
+          "auto_populated_from": "identity.address.city",
+          "grouping": "batch_ok",
+          "sensitivity": "personal"
+        },
+        {
+          "id": "address_state",
+          "type": "text",
+          "label": "State",
+          "required": true,
+          "auto_populated_from": "identity.address.state",
+          "grouping": "batch_ok",
+          "sensitivity": "personal"
+        },
+        {
+          "id": "address_zip",
+          "type": "text",
+          "label": "ZIP code",
+          "required": true,
+          "auto_populated_from": "identity.address.zip",
+          "grouping": "batch_ok",
+          "sensitivity": "personal"
+        },
+        {
+          "id": "ssn_last4",
+          "type": "text",
+          "label": "SSN (last 4)",
+          "required": true,
+          "auto_populated_from": "identity.ssn_last4",
+          "ask_as": "I have your SSN ending in {identity.ssn_last4}. The full number is held securely by Spinwheel and was never shared with me.",
+          "sensitivity": "sensitive",
+          "grouping": "ask_alone"
+        },
+        {
+          "id": "email",
+          "type": "email",
+          "label": "Email address",
+          "required": true,
+          "ask_as": "What's the best email to reach you at?",
+          "validation": { "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" },
+          "grouping": "ask_alone",
+          "sensitivity": "personal"
+        }
+      ]
+    },
+    {
+      "id": "financial_details",
+      "order": 4,
+      "label": "Financial details",
+      "instructions": "Monthly debt payments are AUTO-CALCULATED from the Spinwheel debt profile. Annual income and employment are still manual. Credit score may be auto-populated from the credit report.",
+      "fields": [
+        {
+          "id": "annual_income",
+          "type": "currency",
+          "label": "Annual gross income",
+          "required": true,
+          "ask_as": "What's your approximate annual income before taxes?",
+          "help": "Include salary, bonuses, and regular side income. An estimate is fine.",
+          "validation": { "min": 0, "max": 99999999 },
+          "format": { "currency": "USD", "precision": 0 },
+          "grouping": "ask_alone",
+          "sensitivity": "financial"
+        },
+        {
+          "id": "employment_status",
+          "type": "select",
+          "label": "Employment status",
+          "required": true,
+          "ask_as": "What's your current employment situation?",
+          "options": [
+            { "value": "employed_w2", "label": "Employed (W-2)" },
+            { "value": "self_employed", "label": "Self-employed" },
+            { "value": "retired", "label": "Retired" },
+            { "value": "other", "label": "Other" }
+          ],
+          "grouping": "ask_with_previous",
+          "sensitivity": "low"
+        },
+        {
+          "id": "monthly_debts",
+          "type": "currency",
+          "label": "Total monthly debt payments",
+          "required": true,
+          "auto_calculated_from": "debt_profile.summary.total_monthly_payments",
+          "ask_as": "Based on your credit report, your total monthly debt payments are approximately ${calculated}. Does that sound right?",
+          "help": "This was calculated from your credit report. It includes minimums on credit cards, loan payments, etc. Adjust if you know a different number.",
+          "validation": { "min": 0, "max": 999999 },
+          "format": { "currency": "USD", "precision": 0 },
+          "grouping": "ask_alone",
+          "sensitivity": "financial"
+        },
+        {
+          "id": "credit_score_range",
+          "type": "select",
+          "label": "Credit score range",
+          "required": true,
+          "auto_populated_from": "debt_profile.credit_score.range",
+          "ask_as": "Your credit score from the report is {credit_score.score} ({credit_score.range}). We'll use that for the pre-qualification.",
+          "options": [
+            { "value": "760_plus", "label": "Excellent (760+)" },
+            { "value": "740_759", "label": "Very good (740-759)" },
+            { "value": "720_739", "label": "Good (720-739)" },
+            { "value": "700_719", "label": "Above average (700-719)" },
+            { "value": "680_699", "label": "Fair (680-699)" },
+            { "value": "660_679", "label": "Below average (660-679)" },
+            { "value": "below_660", "label": "Below 660" }
+          ],
+          "grouping": "ask_alone",
+          "sensitivity": "financial"
+        }
+      ]
+    },
+    {
+      "id": "loan_preferences",
+      "order": 5,
+      "label": "Loan preferences",
+      "instructions": "Final preferences for the personal loan. The loan amount is already known from the selected credit cards.",
+      "fields": [
+        {
+          "id": "preferred_term",
+          "type": "select",
+          "label": "Preferred loan term",
+          "required": true,
+          "ask_as": "How quickly would you like to pay off the loan?",
+          "help": "Shorter terms mean higher monthly payments but less total interest. Longer terms lower your monthly payment but cost more over time.",
+          "options": [
+            { "value": "36", "label": "3 years (36 months)" },
+            { "value": "48", "label": "4 years (48 months)" },
+            { "value": "60", "label": "5 years (60 months)" },
+            { "value": "72", "label": "6 years (72 months)" }
+          ],
+          "grouping": "ask_alone",
+          "sensitivity": "none"
+        },
+        {
+          "id": "autopay",
+          "type": "boolean",
+          "label": "Interested in autopay",
+          "required": false,
+          "ask_as": "Would you like to set up autopay? Many lenders offer a rate discount (usually 0.25%) for automatic payments.",
+          "grouping": "ask_with_previous",
+          "sensitivity": "none"
+        }
+      ]
+    }
+  ]
+}

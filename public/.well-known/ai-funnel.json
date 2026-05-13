@@ -1,0 +1,75 @@
+{
+  "protocol": "ai-funnel",
+  "version": "1.1",
+  "provider": {
+    "name": "Horizon Personal Loans",
+    "tagline": "Simple personal loans, transparent rates",
+    "logo": "/images/logo.svg",
+    "legal_entity": "Horizon Financial Services Inc.",
+    "regulatory_ids": { "nmls": "9999999" },
+    "support_email": "support@horizonloans.demo",
+    "support_phone": "1-800-555-0199"
+  },
+  "identity_verification": {
+    "provider": "Spinwheel",
+    "method": "sms_otp",
+    "endpoints": {
+      "connect": "/api/sw/connect",
+      "verify": "/api/sw/verify",
+      "debt_profile": "/api/sw/debt-profile",
+      "refresh_balance": "/api/sw/refresh-balance",
+      "session": "/api/sw/session/{session_token}"
+    },
+    "capabilities": {
+      "identity_autofill": true,
+      "debt_profile": true,
+      "real_time_balances": true,
+      "credit_score": true
+    },
+    "consent_text": "By continuing you agree to the Spinwheel End User Agreement. Further, you are providing 'written instructions' to Spinwheel Solutions, Inc. authorizing it to obtain your credit profile from any consumer reporting agency.",
+    "consent_url": "https://spinwheel.io/end-user-agreement/"
+  },
+  "funnels": [
+    {
+      "id": "personal-loan-consolidation",
+      "name": "Personal Loan for Credit Card Consolidation",
+      "description": "Consolidate your credit card debt with a personal loan. Just your phone number and a quick text code to get started — we'll pull your info and show you exactly what you could save.",
+      "estimated_time_minutes": 3,
+      "category": "personal_loan",
+      "steps_url": "/api/funnel/personal-loan-consolidation/steps",
+      "submit_url": "/api/funnel/personal-loan-consolidation/submit",
+      "stage_url": "/api/funnel/personal-loan-consolidation/stage",
+      "status_url": "/api/funnel/personal-loan-consolidation/status/{session_id}",
+      "validate_field_url": "/api/funnel/personal-loan-consolidation/validate-field",
+      "review_page_url": "/review.html?session={session_id}",
+      "capabilities": {
+        "conversational_completion": true,
+        "identity_autofill": true,
+        "debt_selection": true,
+        "save_and_resume": false,
+        "document_upload": false,
+        "real_time_validation": true
+      }
+    }
+  ],
+  "consent": {
+    "privacy_url": "/privacy",
+    "terms_url": "/terms",
+    "required_disclosures": [
+      "This is a demonstration application. No real loans are being offered.",
+      "This is not a commitment to lend. In a real scenario, all loans would be subject to credit approval, verification of information, and applicable regulations.",
+      "Equal Housing Lender. NMLS #9999999 (demo).",
+      "Credit data provided by Spinwheel via Equifax."
+    ],
+    "data_handling": "Identity verification is performed by Spinwheel. Credit data is pulled from Equifax via Spinwheel. All data submitted through this demo is stored in-memory only and deleted when the server restarts."
+  },
+  "agent_instructions": {
+    "tone": "friendly, professional, encouraging",
+    "pii_handling": "transit_only",
+    "never_store": true,
+    "sensitive_field_behavior": "SSN is returned as last-4 only. Never ask the user for their full SSN — Spinwheel handles that securely.",
+    "on_user_confusion": "Offer to explain the concept simply. Mention the user can always complete the application at the website instead.",
+    "on_completion": "Present a clear summary card of all collected information plus the debt consolidation breakdown. Ask the user to confirm. Then POST to the stage_url and give the user the review page link.",
+    "fallback_url": "/apply"
+  }
+}

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: horizon-personal-loans
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /.well-known/ai-funnel.json
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: BASE_URL
+        sync: false
+      - key: SPINWHEEL_API_KEY
+        sync: false
+      - key: SPINWHEEL_BASE_URL
+        value: https://sandbox-api.spinwheel.io/v1/users

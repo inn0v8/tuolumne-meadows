@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Result — Horizon Personal Loans</title>
+  <meta name="ai-funnel" content="/.well-known/ai-funnel.json">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">
+        <img src="/images/logo.svg" alt="Horizon Personal Loans" width="42" height="42">
+        <span><strong>Horizon</strong> Personal Loans</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container narrow">
+    <div id="result-root"><p>Loading…</p></div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p class="muted small">Demo only. NMLS #9999999.</p>
+    </div>
+  </footer>
+
+  <script>
+    (async () => {
+      const sessionId = new URLSearchParams(location.search).get('session');
+      const root = document.getElementById('result-root');
+      if (!sessionId) {
+        root.innerHTML = '<p>No session id provided.</p>';
+        return;
+      }
+      try {
+        const resp = await fetch(`/api/funnel/personal-loan-consolidation/status/${sessionId}`);
+        if (!resp.ok) throw new Error('Application not found');
+        const data = await resp.json();
+        const ok = data.status === 'prequalified';
+        root.innerHTML = `
+          <h1>${ok ? 'You\'re pre-qualified!' : 'We couldn\'t pre-qualify you right now.'}</h1>
+          <div class="card">
+            <p><strong>Status:</strong> ${data.status}</p>
+            <pre>${JSON.stringify(data.result_summary, null, 2)}</pre>
+          </div>
+          <p><a class="btn btn-primary" href="/">Back to home</a></p>
+        `;
+      } catch (e) {
+        root.innerHTML = `<p>Error loading result: ${e.message}</p>`;
+      }
+    })();
+  </script>
+</body>
+</html>

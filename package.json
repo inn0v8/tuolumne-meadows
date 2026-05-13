@@ -1,0 +1,21 @@
+{
+  "name": "horizon-home-loans",
+  "version": "1.0.0",
+  "description": "Demo lending site implementing the AI Application Funnel Protocol with Spinwheel integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "uuid": "^10.0.0",
+    "compression": "^1.7.4",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
