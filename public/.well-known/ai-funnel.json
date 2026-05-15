@@ -1,6 +1,8 @@
 {
   "protocol": "ai-funnel",
   "version": "1.1",
+  "base_url": "https://horizon-personal-loans.onrender.com",
+  "skill_url": "/skill/SKILL.md",
   "provider": {
     "name": "Horizon Personal Loans",
     "tagline": "Simple personal loans, transparent rates",

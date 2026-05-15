@@ -1,222 +1,155 @@
-// Minimal browser-side traditional flow: phone + DOB -> OTP -> debt profile -> form
 (() => {
-  const root = document.getElementById('app');
-  const state = {
-    phase: 'consent',
-    sessionToken: null,
-    identity: null,
-    debtProfile: null,
-    selectedCards: new Set(),
-    responses: {},
-  };
+  const form = document.getElementById('apply-form');
+  const stepper = document.getElementById('stepper');
+  const cardsList = document.getElementById('cards-list');
+  const totalEl = document.getElementById('consolidation-total');
+  const addCardBtn = document.getElementById('add-card');
+  const errorEl = document.getElementById('form-error');
 
-  function render() {
-    root.innerHTML = '';
-    if (state.phase === 'consent') return renderConsent();
-    if (state.phase === 'connect') return renderConnect();
-    if (state.phase === 'verify') return renderVerify();
-    if (state.phase === 'debts') return renderDebts();
-    if (state.phase === 'financial') return renderFinancial();
-    if (state.phase === 'review') return renderReview();
-    if (state.phase === 'result') return renderResult();
+  let cardCount = 0;
+
+  function addCardRow(prefill = {}) {
+    cardCount += 1;
+    const id = `manual_${cardCount}`;
+    const row = document.createElement('div');
+    row.className = 'card-row';
+    row.dataset.id = id;
+    row.innerHTML = `
+      <div class="row-3">
+        <label>Card issuer / name<input type="text" data-name="display_name" required value="${prefill.display_name || ''}" placeholder="e.g. Chase Sapphire"></label>
+        <label>Current balance ($)<input type="number" data-name="current_balance" required min="0" step="1" value="${prefill.current_balance || ''}"></label>
+        <label>Min monthly payment ($)<input type="number" data-name="min_payment" min="0" step="1" value="${prefill.min_payment || ''}"></label>
+      </div>
+      <p><button type="button" class="link-btn" data-remove>Remove</button></p>
+    `;
+    cardsList.appendChild(row);
+    row.querySelectorAll('input[data-name="current_balance"]').forEach(i => i.addEventListener('input', updateTotal));
+    row.querySelector('[data-remove]').addEventListener('click', () => { row.remove(); updateTotal(); });
+    updateTotal();
   }
 
-  function renderConsent() {
-    root.innerHTML = `
-      <div class="card">
-        <h2>Before we begin</h2>
-        <div class="disclosure">
-          By continuing you agree to the Spinwheel End User Agreement and provide written instructions
-          to Spinwheel Solutions, Inc. authorizing it to obtain your credit profile from any consumer
-          reporting agency.
-        </div>
-        <div class="disclosure">
-          This is a demonstration application. No real loans are being offered. Credit data is pulled
-          via Spinwheel sandbox.
-        </div>
-        <button class="btn btn-primary" id="agree">I agree, continue</button>
-      </div>
-    `;
-    document.getElementById('agree').addEventListener('click', () => { state.phase = 'connect'; render(); });
-  }
-
-  function renderConnect() {
-    root.innerHTML = `
-      <div class="card">
-        <h2>Verify your identity</h2>
-        <label>Mobile phone number</label>
-        <input id="phone" type="tel" placeholder="(415) 555-0123" />
-        <label>Date of birth</label>
-        <input id="dob" type="date" />
-        <p><button class="btn btn-primary" id="send">Send verification code</button></p>
-        <p id="err" class="warn"></p>
-      </div>
-    `;
-    document.getElementById('send').addEventListener('click', async () => {
-      const phone = document.getElementById('phone').value;
-      const dob = document.getElementById('dob').value;
-      try {
-        const resp = await fetch('/api/sw/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, dob }),
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || 'Failed');
-        state.sessionToken = data.session_token;
-        state.phase = 'verify';
-        render();
-      } catch (e) {
-        document.getElementById('err').textContent = e.message;
-      }
+  function updateTotal() {
+    let total = 0;
+    cardsList.querySelectorAll('.card-row').forEach(row => {
+      const v = Number(row.querySelector('input[data-name="current_balance"]').value || 0);
+      total += v;
     });
+    totalEl.textContent = total.toLocaleString();
   }
 
-  function renderVerify() {
-    root.innerHTML = `
-      <div class="card">
-        <h2>Enter the code</h2>
-        <p>We sent a 6-digit code to your phone (sandbox: 000000).</p>
-        <input id="otp" type="text" maxlength="6" placeholder="000000" />
-        <p><button class="btn btn-primary" id="verify">Verify</button></p>
-        <p id="err" class="warn"></p>
-      </div>
-    `;
-    document.getElementById('verify').addEventListener('click', async () => {
-      const otp = document.getElementById('otp').value;
-      try {
-        const resp = await fetch('/api/sw/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_token: state.sessionToken, otp_code: otp }),
-        });
-        const data = await resp.json();
-        if (!resp.ok || !data.verified) throw new Error(data.error || 'Verification failed');
-        state.identity = data.identity;
-        state.phase = 'debts';
-        render();
-        loadDebts();
-      } catch (e) {
-        document.getElementById('err').textContent = e.message;
-      }
-    });
-  }
-
-  async function loadDebts() {
-    try {
-      const resp = await fetch('/api/sw/debt-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_token: state.sessionToken }),
+  function collectCards() {
+    const cards = [];
+    cardsList.querySelectorAll('.card-row').forEach(row => {
+      const get = name => row.querySelector(`input[data-name="${name}"]`).value;
+      const bal = Number(get('current_balance') || 0);
+      if (!get('display_name').trim() || bal <= 0) return;
+      cards.push({
+        id: row.dataset.id,
+        display_name: get('display_name').trim(),
+        current_balance: bal,
+        min_payment: Number(get('min_payment') || 0),
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'Failed to pull debt profile');
-      state.debtProfile = data;
-      render();
-    } catch (e) {
-      root.innerHTML = `<div class="card"><p class="warn">Failed to load debts: ${e.message}</p></div>`;
-    }
+    });
+    return cards;
   }
 
-  function renderDebts() {
-    if (!state.debtProfile) {
-      root.innerHTML = `<div class="card"><p>Pulling your debt profile…</p></div>`;
+  function showStep(n) {
+    form.querySelectorAll('.step').forEach(s => s.classList.toggle('active', s.dataset.step === String(n)));
+    stepper.querySelectorAll('li').forEach(li => li.classList.toggle('active', li.dataset.step === String(n)));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function validateCurrentStep(n) {
+    const step = form.querySelector(`.step[data-step="${n}"]`);
+    const inputs = step.querySelectorAll('input, select, textarea');
+    for (const el of inputs) {
+      if (!el.checkValidity()) {
+        el.reportValidity();
+        return false;
+      }
+    }
+    if (n === 2 && collectCards().length === 0) {
+      errorEl.textContent = 'Add at least one credit card with a balance.';
+      return false;
+    }
+    errorEl.textContent = '';
+    return true;
+  }
+
+  form.querySelectorAll('[data-next]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = Number(btn.closest('.step').dataset.step);
+      if (!validateCurrentStep(current)) return;
+      showStep(Number(btn.dataset.next));
+    });
+  });
+  form.querySelectorAll('[data-prev]').forEach(btn => {
+    btn.addEventListener('click', () => showStep(Number(btn.dataset.prev)));
+  });
+
+  addCardBtn.addEventListener('click', () => addCardRow());
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!validateCurrentStep(4)) return;
+
+    const data = new FormData(form);
+    const cards = collectCards();
+    const consolidationAmount = cards.reduce((s, c) => s + c.current_balance, 0);
+    if (consolidationAmount < 1000) {
+      errorEl.textContent = 'The total consolidation amount must be at least $1,000.';
+      showStep(2);
       return;
     }
-    const cards = (state.debtProfile.credit_cards || []).filter(c => c.selectable);
-    root.innerHTML = `
-      <div class="card">
-        <h2>Hello, ${state.identity?.first_name || 'there'}</h2>
-        <p>SSN ending in ${state.identity?.ssn_last4 || '----'}</p>
-        ${state.identity?.address ? `<p>${state.identity.address.street || ''}, ${state.identity.address.city || ''} ${state.identity.address.state || ''} ${state.identity.address.zip || ''}</p>` : ''}
-        ${state.debtProfile.credit_score ? `<p>Credit score: <strong>${state.debtProfile.credit_score.score}</strong> (${state.debtProfile.credit_score.range})</p>` : ''}
-        <h3>Which cards do you want to consolidate?</h3>
-        ${cards.length === 0 ? '<p>No eligible cards found.</p>' : cards.map(c => `
-          <label class="checkbox-row">
-            <input type="checkbox" data-id="${c.id}" />
-            <span><strong>${c.display_name}</strong> ${c.masked_number || ''}<br>
-            <small>Balance $${(c.current_balance || 0).toLocaleString()} · Limit $${(c.credit_limit || 0).toLocaleString()} · Min $${(c.min_payment || 0).toLocaleString()}/mo</small></span>
-          </label>
-        `).join('')}
-        <p><button class="btn btn-primary" id="next">Continue</button></p>
-      </div>
-    `;
-    root.querySelectorAll('input[type=checkbox]').forEach(cb => {
-      cb.addEventListener('change', () => {
-        if (cb.checked) state.selectedCards.add(cb.dataset.id);
-        else state.selectedCards.delete(cb.dataset.id);
+
+    const responses = {
+      phone: data.get('phone'),
+      dob: data.get('dob'),
+      full_name: data.get('full_name'),
+      address_street: data.get('address_street'),
+      address_city: data.get('address_city'),
+      address_state: data.get('address_state'),
+      address_zip: data.get('address_zip'),
+      ssn_last4: data.get('ssn_last4'),
+      email: data.get('email'),
+      annual_income: Number(data.get('annual_income')),
+      employment_status: data.get('employment_status'),
+      monthly_debts: Number(data.get('monthly_debts')),
+      credit_score_range: data.get('credit_score_range'),
+      selected_cards: cards.map(c => c.id),
+      consolidation_amount: consolidationAmount,
+      preferred_term: data.get('preferred_term'),
+      autopay: !!data.get('autopay'),
+    };
+
+    const body = {
+      responses,
+      agent: { type: 'browser', interface: 'apply.html' },
+      consent: {
+        user_confirmed_at: new Date().toISOString(),
+        disclosures_shown: true,
+        privacy_acknowledged: true,
+        terms_acknowledged: true,
+      },
+    };
+
+    try {
+      const resp = await fetch('/api/funnel/personal-loan-consolidation/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
-    });
-    document.getElementById('next').addEventListener('click', () => {
-      state.phase = 'financial';
-      render();
-    });
-  }
-
-  function renderFinancial() {
-    const total = (state.debtProfile?.credit_cards || [])
-      .filter(c => state.selectedCards.has(c.id))
-      .reduce((s, c) => s + (c.current_balance || 0), 0);
-    root.innerHTML = `
-      <div class="card">
-        <h2>Financial details</h2>
-        <p>Selected balance: <strong>$${total.toLocaleString()}</strong></p>
-        <label>Annual income (gross)</label>
-        <input id="income" type="number" min="0" />
-        <label>Employment status</label>
-        <select id="emp">
-          <option value="employed_w2">Employed (W-2)</option>
-          <option value="self_employed">Self-employed</option>
-          <option value="retired">Retired</option>
-          <option value="other">Other</option>
-        </select>
-        <label>Email</label>
-        <input id="email" type="email" />
-        <label>Preferred term</label>
-        <select id="term">
-          <option value="36">3 years</option>
-          <option value="48" selected>4 years</option>
-          <option value="60">5 years</option>
-          <option value="72">6 years</option>
-        </select>
-        <p><button class="btn btn-primary" id="stage">Continue to review</button></p>
-      </div>
-    `;
-    document.getElementById('stage').addEventListener('click', async () => {
-      const responses = {
-        phone: state.identity?.phone,
-        dob: state.identity?.dob,
-        full_name: state.identity?.full_name,
-        address_street: state.identity?.address?.street,
-        address_city: state.identity?.address?.city,
-        address_state: state.identity?.address?.state,
-        address_zip: state.identity?.address?.zip,
-        ssn_last4: state.identity?.ssn_last4,
-        email: document.getElementById('email').value,
-        annual_income: Number(document.getElementById('income').value),
-        employment_status: document.getElementById('emp').value,
-        monthly_debts: state.debtProfile?.summary?.total_monthly_payments || 0,
-        credit_score_range: state.debtProfile?.credit_score?.range || 'not_sure',
-        selected_cards: Array.from(state.selectedCards),
-        consolidation_amount: total,
-        preferred_term: document.getElementById('term').value,
-        autopay: false,
-      };
-      state.responses = responses;
-      try {
-        const resp = await fetch('/api/funnel/personal-loan-consolidation/stage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ responses, session_token: state.sessionToken, agent: { type: 'browser' } }),
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || 'Validation failed');
-        window.location.href = data.review_url;
-      } catch (e) {
-        alert('Error: ' + e.message);
+      const result = await resp.json();
+      if (!resp.ok) {
+        errorEl.textContent = result.error || 'Submission failed.';
+        return;
       }
-    });
-  }
+      window.location.href = `/result.html?session=${result.session_id}`;
+    } catch (err) {
+      errorEl.textContent = 'Network error: ' + err.message;
+    }
+  });
 
-  render();
+  // Seed with one empty card row.
+  addCardRow();
 })();

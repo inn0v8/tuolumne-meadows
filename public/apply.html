@@ -16,20 +16,147 @@
       </a>
       <nav>
         <a href="/">Home</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
       </nav>
     </div>
   </header>
 
   <main class="container narrow">
     <h1>Personal Loan Consolidation</h1>
-    <p>Verify your identity with Spinwheel, then we'll pull your debts and show you what you could save.</p>
+    <p class="muted">Prefer to fill out the form yourself? Walk through the four steps below. If you'd rather have an AI assistant guide you, head back to the <a href="/">landing page</a>.</p>
 
-    <div id="app"></div>
+    <ol class="stepper" id="stepper">
+      <li class="active" data-step="1"><span>1</span> Identity</li>
+      <li data-step="2"><span>2</span> Debts</li>
+      <li data-step="3"><span>3</span> Finances</li>
+      <li data-step="4"><span>4</span> Loan</li>
+    </ol>
+
+    <form id="apply-form" novalidate>
+      <!-- Step 1: Identity -->
+      <section class="card step active" data-step="1">
+        <h2>About you</h2>
+        <label>Full legal name<input name="full_name" type="text" required minlength="2" autocomplete="name"></label>
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>Phone<input name="phone" type="tel" required pattern="[\d\s\-\(\)\+]{10,15}" placeholder="(415) 555-0123" autocomplete="tel"></label>
+        <label>Date of birth<input name="dob" type="date" required></label>
+        <label>Street address<input name="address_street" type="text" required autocomplete="address-line1"></label>
+        <div class="row-3">
+          <label>City<input name="address_city" type="text" required autocomplete="address-level2"></label>
+          <label>State
+            <select name="address_state" required>
+              <option value="">—</option>
+              <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
+              <option>CO</option><option>CT</option><option>DE</option><option>FL</option><option>GA</option>
+              <option>HI</option><option>ID</option><option>IL</option><option>IN</option><option>IA</option>
+              <option>KS</option><option>KY</option><option>LA</option><option>ME</option><option>MD</option>
+              <option>MA</option><option>MI</option><option>MN</option><option>MS</option><option>MO</option>
+              <option>MT</option><option>NE</option><option>NV</option><option>NH</option><option>NJ</option>
+              <option>NM</option><option>NY</option><option>NC</option><option>ND</option><option>OH</option>
+              <option>OK</option><option>OR</option><option>PA</option><option>RI</option><option>SC</option>
+              <option>SD</option><option>TN</option><option>TX</option><option>UT</option><option>VT</option>
+              <option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
+              <option>DC</option>
+            </select>
+          </label>
+          <label>ZIP<input name="address_zip" type="text" required pattern="[0-9]{5}(-[0-9]{4})?" autocomplete="postal-code"></label>
+        </div>
+        <label>SSN (last 4)<input name="ssn_last4" type="text" required pattern="[0-9]{4}" inputmode="numeric" maxlength="4"></label>
+        <div class="step-actions">
+          <button type="button" class="btn btn-primary" data-next="2">Continue</button>
+        </div>
+      </section>
+
+      <!-- Step 2: Debts -->
+      <section class="card step" data-step="2">
+        <h2>Credit cards to consolidate</h2>
+        <p class="muted">Add the credit cards you'd like to pay off with the personal loan. Add at least one.</p>
+        <div id="cards-list"></div>
+        <p><button type="button" class="btn btn-secondary" id="add-card">+ Add another card</button></p>
+        <p>Total to consolidate: <strong>$<span id="consolidation-total">0</span></strong></p>
+        <div class="step-actions">
+          <button type="button" class="btn" data-prev="1">Back</button>
+          <button type="button" class="btn btn-primary" data-next="3">Continue</button>
+        </div>
+      </section>
+
+      <!-- Step 3: Finances -->
+      <section class="card step" data-step="3">
+        <h2>Your finances</h2>
+        <label>Annual gross income (USD)
+          <input name="annual_income" type="number" required min="0" max="99999999" step="1" inputmode="numeric">
+        </label>
+        <label>Employment status
+          <select name="employment_status" required>
+            <option value="">—</option>
+            <option value="employed_w2">Employed (W-2)</option>
+            <option value="self_employed">Self-employed</option>
+            <option value="retired">Retired</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Total monthly debt payments (USD)
+          <input name="monthly_debts" type="number" required min="0" max="999999" step="1" inputmode="numeric">
+          <small class="muted">Include car loans, student loans, credit card minimums — not rent or utilities.</small>
+        </label>
+        <label>Estimated credit score range
+          <select name="credit_score_range" required>
+            <option value="">—</option>
+            <option value="760_plus">Excellent (760+)</option>
+            <option value="740_759">Very good (740-759)</option>
+            <option value="720_739">Good (720-739)</option>
+            <option value="700_719">Above average (700-719)</option>
+            <option value="680_699">Fair (680-699)</option>
+            <option value="660_679">Below average (660-679)</option>
+            <option value="below_660">Below 660</option>
+            <option value="not_sure">Not sure</option>
+          </select>
+        </label>
+        <div class="step-actions">
+          <button type="button" class="btn" data-prev="2">Back</button>
+          <button type="button" class="btn btn-primary" data-next="4">Continue</button>
+        </div>
+      </section>
+
+      <!-- Step 4: Loan preferences + disclosures -->
+      <section class="card step" data-step="4">
+        <h2>Loan preferences</h2>
+        <label>Preferred term
+          <select name="preferred_term" required>
+            <option value="">—</option>
+            <option value="36">3 years (36 months)</option>
+            <option value="48" selected>4 years (48 months)</option>
+            <option value="60">5 years (60 months)</option>
+            <option value="72">6 years (72 months)</option>
+          </select>
+        </label>
+        <label class="checkbox-row">
+          <input name="autopay" type="checkbox" value="true">
+          <span>Interested in autopay (often gets a rate discount)</span>
+        </label>
+
+        <h2>Disclosures</h2>
+        <div class="disclosure">This is a demonstration application. No real loans are being offered.</div>
+        <div class="disclosure">This is not a commitment to lend. In a real scenario, all loans would be subject to credit approval.</div>
+        <div class="disclosure">Equal Opportunity Lender. NMLS #9999999 (demo).</div>
+        <label class="checkbox-row"><input id="ack-disc" type="checkbox" required> <span>I have read the disclosures.</span></label>
+        <label class="checkbox-row"><input id="ack-priv" type="checkbox" required> <span>I agree to the <a href="/privacy" target="_blank">Privacy Policy</a>.</span></label>
+        <label class="checkbox-row"><input id="ack-terms" type="checkbox" required> <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a>.</span></label>
+
+        <div class="step-actions">
+          <button type="button" class="btn" data-prev="3">Back</button>
+          <button type="submit" class="btn btn-primary">Submit application</button>
+        </div>
+        <p id="form-error" class="warn" role="alert"></p>
+      </section>
+    </form>
   </main>
 
   <footer class="site-footer">
     <div class="container">
-      <p class="muted small">Demo only. NMLS #9999999.</p>
+      <p><strong>Horizon Financial Services Inc.</strong> · NMLS #9999999 (demo)</p>
+      <p class="muted small">Demo only. Pre-qualification estimates use simplified formulas.</p>
     </div>
   </footer>
 
