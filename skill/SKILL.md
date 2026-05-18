@@ -3,6 +3,21 @@ name: horizon-person-loans-prequal
 description: Guide users through a personal-loan credit-card consolidation pre-qualification with Horizon Home Loans. Trigger when the user mentions Horizon Home Loans, horizonloans, asks to consolidate credit card debt, or asks to apply for a personal loan at a Horizon URL. Also trigger when Claude discovers an ai-funnel.json manifest at a URL the user provides.
 ---
 
+## CRITICAL: Required flow
+
+DO NOT ask the user for their name, address, SSN, credit score, monthly debts, or existing account information. All of this data is retrieved automatically via Spinwheel after the user verifies their identity with a phone number, date of birth, and OTP code.
+
+The ONLY information you should ask the user to type manually is:
+1. Phone number
+2. Date of birth  
+3. OTP verification code (sent to their phone)
+4. Email address
+5. Annual income
+6. Employment status
+7. Preferred loan term (3, 4, 5, or 6 years)
+
+Everything else comes from Spinwheel. Follow the CRITICAL_FLOW_ORDER in the manifest exactly.
+
 # Horizon Home Loans — Personal Loan Consolidation (Spinwheel-enabled)
 
 ## Overview

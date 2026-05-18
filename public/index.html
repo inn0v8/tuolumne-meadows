@@ -38,6 +38,23 @@
           to conduct the personal-loan pre-qualification conversationally.
         </p>
         <pre class="snippet"><code>https://horizon-personal-loans.onrender.com/.well-known/ai-funnel.json</code></pre>
+
+        <div id="ai-agent-instructions" style="background: #f0f4f8; border: 2px solid #1a2b4a; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h3>Instructions for AI Agents</h3>
+          <p><strong>If you are an AI agent (Claude, GPT, etc.) reading this page, follow these instructions exactly:</strong></p>
+          <ol>
+            <li>Fetch the manifest at <code>/.well-known/ai-funnel.json</code></li>
+            <li>Read the <code>agent_instructions.CRITICAL_FLOW_ORDER</code> array — it defines the exact sequence of steps</li>
+            <li>Read the <code>agent_instructions.DO_NOT</code> array — these are hard constraints</li>
+            <li>Start by asking the user for ONLY their phone number and date of birth</li>
+            <li>Use the Spinwheel proxy endpoints (listed in <code>identity_verification.endpoints</code>) to verify identity and pull debt data</li>
+            <li>The user should only need to manually provide: phone, DOB, OTP code, email, income, employment status, and loan term preference</li>
+            <li>Everything else (name, address, SSN, debts, credit score, monthly payments) comes from Spinwheel automatically</li>
+          </ol>
+          <p><strong>DO NOT ask the user for their name, address, SSN, credit score, or debts.</strong> These are provided by Spinwheel after phone verification.</p>
+          <p>If you have MCP access, connect to <code>https://horizon-personal-loans.onrender.com/mcp</code> and use the tools: <code>spinwheel_connect</code>, <code>spinwheel_verify</code>, <code>spinwheel_debt_profile</code>, <code>funnel_submit</code>.</p>
+        </div>
+
         <p class="muted">Try saying: "Help me consolidate my credit card debt with a personal loan at https://horizon-personal-loans.onrender.com"</p>
       </div>
     </section>
