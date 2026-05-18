@@ -91,7 +91,7 @@
       "NEVER ask the user for their credit score — the debt profile provides it.",
       "NEVER ask the user for their monthly debt payments — the debt profile calculates it.",
       "NEVER ask the user to list their debts — the debt profile pulls them automatically.",
-      "NEVER skip the Spinwheel verification and fall back to manual data entry unless Spinwheel fails.",
+      "NEVER skip the Spinwheel verification and fall back to manual data entry unless (1) a Spinwheel API call fails AND (2) the user explicitly chooses to enter their information manually when presented with the three options.",
       "NEVER ask for more than phone number and date of birth before initiating Spinwheel verification."
     ],
 
@@ -105,7 +105,20 @@
       "preferred loan term (user choice)"
     ],
 
-    "on_spinwheel_failure": "If any Spinwheel call fails, tell the user and offer two options: (1) try again, or (2) use the website directly at the fallback_url. Do NOT silently fall back to asking for all fields manually.",
+    "on_spinwheel_failure": {
+      "behavior": "If any Spinwheel call fails (connect, verify, or debt_profile), tell the user what happened in plain language. Then present exactly three options and wait for the user to choose. Do NOT silently fall back to manual entry. Do NOT assume the user wants manual entry.",
+      "options_to_present": [
+        "Try again (re-attempt the Spinwheel verification)",
+        "Go to the website and complete the application there (link to fallback_url)",
+        "Enter your information manually here in the conversation instead"
+      ],
+      "manual_fallback_rules": [
+        "ONLY proceed with manual data entry if the user explicitly chooses option 3.",
+        "If the user chooses manual entry, switch to asking for: full name, email, phone, date of birth, address (street, city, state, zip), annual income, employment status, monthly debt payments (self-estimated), credit score range (self-estimated), and preferred loan term.",
+        "Acknowledge that the manual path requires more information and that debt/credit data will be self-reported estimates rather than verified numbers.",
+        "The pre-qualification result from manual entry will note that it is based on self-reported data and subject to verification."
+      ]
+    },
     "fallback_url": "/apply",
     "sensitive_field_behavior": "SSN is returned as last-4 only from Spinwheel. Never ask the user for their full SSN. Never repeat the SSN last 4 back — just say 'I have your SSN on file from verification.'"
   }
