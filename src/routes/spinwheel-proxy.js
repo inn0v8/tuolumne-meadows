@@ -153,62 +153,100 @@ router.post('/refresh-balance', async (req, res) => {
       return res.status(404).json({ error: 'Session not found or expired.' });
     }
 
-    await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id);
-
-    let attempts = 0;
-    let status = 'IN_PROGRESS';
-    let balanceData = null;
-
-    while (status === 'IN_PROGRESS' && attempts < 10) {
-      await sleep(2000);
-      attempts++;
-
-      const userProfile = await sw.getUserProfile(session.spinwheelUserId);
-      const userObj = Array.isArray(userProfile) ? userProfile[0] : userProfile;
-
-      const allLiabilities = [
-        ...(userObj.creditCards || []),
-        ...(userObj.autoLoans || []),
-        ...(userObj.studentLoans || []),
-        ...(userObj.personalLoans || []),
-      ];
-
-      const liability = allLiabilities.find(l =>
-        l.creditCardId === liability_id ||
-        l.autoLoanId === liability_id ||
-        l.studentLoanId === liability_id ||
-        l.personalLoanId === liability_id
-      );
-
-      if (liability && liability.balanceDetails) {
-        status = 'COMPLETED';
-        balanceData = {
-          balance: liability.balanceDetails.currentBalance || liability.cardProfile?.currentBalance,
-          available_credit: liability.balanceDetails.availableCredit || liability.cardProfile?.availableCreditDerived,
-          min_payment_due: liability.balanceDetails.minimumPaymentDue,
-          last_payment_amount: liability.balanceDetails.lastPaymentAmount,
-          last_payment_date: liability.balanceDetails.lastPaymentDate,
-          updated_at: liability.balanceDetails.updatedOn || new Date().toISOString(),
-        };
-      }
+    // Snapshot pre-refresh state so we can detect when fresh data actually arrives,
+    // and verify the card supports real-time refresh before triggering anything.
+    const beforeProfile = await sw.getUserProfile(session.spinwheelUserId);
+    const beforeObj = Array.isArray(beforeProfile) ? beforeProfile[0] : beforeProfile;
+    const beforeCard = findLiability(beforeObj, liability_id);
+    if (!beforeCard) {
+      return res.status(404).json({ error: `Liability ${liability_id} not found in user profile.` });
     }
-
-    if (status !== 'COMPLETED') {
-      return res.json({
-        status: 'pending',
-        message: 'Balance refresh is still processing. The most recent cached balance is being used.',
+    const beforeUpdatedOn = beforeCard.balanceDetails?.updatedOn || 0;
+    const supports = beforeCard.capabilities?.data?.realtimeBalance?.availability === 'SUPPORTED'
+      || beforeCard.capabilities?.realtimeBalance?.availability === 'SUPPORTED'
+      || beforeCard.capabilities?.data?.realtimeBalance?.supported === true;
+    if (!supports) {
+      return res.status(400).json({
+        status: 'not_supported',
+        error: 'This card does not support real-time balance refresh.',
+        message: `Spinwheel only offers real-time refresh for cards from issuers it has direct connections to. Most recent credit-report balance: $${beforeCard.balanceDetails?.outstandingBalance ?? 'unknown'}.`,
+        capabilities_observed: beforeCard.capabilities?.data?.realtimeBalance
+          || beforeCard.capabilities?.realtimeBalance
+          || beforeCard.capabilities
+          || null,
       });
     }
 
-    res.json({ status: 'completed', ...balanceData });
+    // Trigger the refresh and surface any Spinwheel-side rejection in full.
+    let refreshResp;
+    try {
+      refreshResp = await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id);
+    } catch (apiErr) {
+      return res.status(apiErr.status || 502).json({
+        error: 'Spinwheel rejected the refresh request.',
+        spinwheel_status: apiErr.status,
+        spinwheel_response: apiErr.data,
+        message: apiErr.data?.status?.messages?.[0]?.desc || apiErr.data?.message || apiErr.message,
+      });
+    }
+
+    // Poll until balanceDetails.updatedOn advances past the snapshot, indicating fresh data.
+    let attempts = 0;
+    while (attempts < 8) {
+      await sleep(2500);
+      attempts++;
+      const profile = await sw.getUserProfile(session.spinwheelUserId);
+      const obj = Array.isArray(profile) ? profile[0] : profile;
+      const card = findLiability(obj, liability_id);
+      const updatedOn = card?.balanceDetails?.updatedOn || 0;
+      if (updatedOn > beforeUpdatedOn) {
+        return res.json({
+          status: 'completed',
+          balance: card.balanceDetails.outstandingBalance
+            ?? card.balanceDetails.currentBalance
+            ?? card.cardProfile?.currentBalance,
+          available_credit: card.balanceDetails.availableCredit ?? card.cardProfile?.availableCreditDerived,
+          min_payment_due: card.balanceDetails.minimumPaymentDue,
+          last_payment_amount: card.balanceDetails.lastPaymentAmount,
+          last_payment_date: card.balanceDetails.lastPaymentDate,
+          updated_at: new Date(updatedOn).toISOString(),
+          poll_attempts: attempts,
+        });
+      }
+    }
+
+    return res.json({
+      status: 'timeout',
+      message: `Refresh accepted by Spinwheel but no fresh balance arrived within ${attempts * 2.5}s.`,
+      cached_balance: beforeCard.balanceDetails?.outstandingBalance,
+      spinwheel_response: refreshResp,
+    });
   } catch (err) {
     console.error('Spinwheel refresh error:', err.status, err.data || err.message);
     res.status(err.status || 500).json({
-      error: 'Failed to refresh balance. Using cached balance.',
-      details: err.data,
+      error: 'Unexpected error during refresh.',
+      details: err.data || err.message,
     });
   }
 });
+
+function findLiability(userObj, liability_id) {
+  if (!userObj) return null;
+  const all = [
+    ...(userObj.creditCards || []),
+    ...(userObj.autoLoans || []),
+    ...(userObj.studentLoans || []),
+    ...(userObj.personalLoans || []),
+    ...(userObj.homeLoans || []),
+  ];
+  return all.find(l =>
+    l.creditCardId === liability_id ||
+    l.autoLoanId === liability_id ||
+    l.studentLoanId === liability_id ||
+    l.personalLoanId === liability_id ||
+    l.homeLoanId === liability_id
+  ) || null;
+}
 
 router.get('/session/:sessionToken', (req, res) => {
   const session = store.getSpinwheelSession(req.params.sessionToken);
@@ -314,7 +352,9 @@ function transformDebtProfile(userData) {
       status: card.cardProfile?.status || 'UNKNOWN',
       account_type: card.cardProfile?.accountType || null,
       payment_status: card.cardProfile?.accountRating || null,
-      can_refresh_balance: card.capabilities?.data?.realtimeBalance?.availability === 'SUPPORTED',
+      can_refresh_balance: card.capabilities?.data?.realtimeBalance?.availability === 'SUPPORTED'
+        || card.capabilities?.realtimeBalance?.availability === 'SUPPORTED'
+        || card.capabilities?.data?.realtimeBalance?.supported === true,
       selectable: (card.cardProfile?.status === 'OPEN') && balance > 0,
     };
   });

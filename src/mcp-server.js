@@ -231,56 +231,114 @@ function createMcpServer() {
   // ── Tool 6: spinwheel_refresh_balance ──
   server.tool(
     'spinwheel_refresh_balance',
-    'Optional. Refresh the real-time balance for a specific credit card. ' +
-    'Only works for cards where can_refresh_balance=true in the debt profile. ' +
-    'Use when the user wants the most current balance before deciding which cards to consolidate.',
+    'Optional. Trigger a live balance refresh from the card issuer for a specific credit card. ' +
+    'Use when the user wants the most current balance before deciding which cards to consolidate. ' +
+    'Real-time refresh is only available for cards where can_refresh_balance=true in the debt profile ' +
+    '(typically major issuers like Chase, Citi, Amex, etc. that Spinwheel has direct connections to). ' +
+    'For cards without realtime support, this tool returns an explanatory error rather than a number. ' +
+    'On any error, report the exact error message to the user verbatim — do not paraphrase as ' +
+    '"the backend is broken" or "this is a demo limitation." The error usually explains exactly ' +
+    'which card or capability is unavailable.',
     {
       session_token: z.string().describe('session_token from a verified session'),
-      liability_id: z.string().describe('The id of the credit card to refresh'),
+      liability_id: z.string().describe('The id of the credit card to refresh (creditCardId from spinwheel_debt_profile)'),
     },
     async ({ session_token, liability_id }) => {
       try {
         const session = store.getSpinwheelSession(session_token);
         if (!session) {
-          return { content: [{ type: 'text', text: 'Session not found.' }], isError: true };
+          return { content: [{ type: 'text', text: 'Session not found or expired. Restart with spinwheel_connect.' }], isError: true };
         }
-        await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id);
+
+        // Step 1: snapshot the card's pre-refresh state so we can detect when fresh data arrives.
+        const beforeProfile = await sw.getUserProfile(session.spinwheelUserId);
+        const beforeObj = Array.isArray(beforeProfile) ? beforeProfile[0] : beforeProfile;
+        const beforeCard = findLiability(beforeObj, liability_id);
+        if (!beforeCard) {
+          return {
+            content: [{ type: 'text', text: `Liability ${liability_id} not found in user profile. List cards via spinwheel_debt_profile first.` }],
+            isError: true,
+          };
+        }
+        const beforeUpdatedOn = beforeCard.balanceDetails?.updatedOn || 0;
+        const supports = beforeCard.capabilities?.data?.realtimeBalance?.availability === 'SUPPORTED'
+          || beforeCard.capabilities?.realtimeBalance?.availability === 'SUPPORTED'
+          || beforeCard.capabilities?.data?.realtimeBalance?.supported === true;
+        if (!supports) {
+          const cap = beforeCard.capabilities?.data?.realtimeBalance
+            || beforeCard.capabilities?.realtimeBalance
+            || beforeCard.capabilities
+            || null;
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                status: 'not_supported',
+                message: `This card does not support real-time balance refresh. Spinwheel only offers realtime refresh for cards from issuers it has direct connections to. The most recent balance from the credit report is $${beforeCard.balanceDetails?.outstandingBalance ?? 'unknown'} (last updated ${beforeCard.balanceDetails?.updatedOn ? new Date(beforeCard.balanceDetails.updatedOn).toISOString() : 'unknown'}).`,
+                capabilities_observed: cap,
+              }),
+            }],
+            isError: true,
+          };
+        }
+
+        // Step 2: trigger the refresh.
+        let refreshResp;
+        try {
+          refreshResp = await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id);
+        } catch (apiErr) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Spinwheel rejected the refresh request (HTTP ${apiErr.status}): ${apiErr.data?.status?.messages?.[0]?.desc || apiErr.data?.message || apiErr.message}. Raw response: ${JSON.stringify(apiErr.data)}`,
+            }],
+            isError: true,
+          };
+        }
+
+        // Step 3: poll for the card's balanceDetails.updatedOn to advance past beforeUpdatedOn.
         let attempts = 0;
-        while (attempts < 5) {
-          await sleep(2000);
+        while (attempts < 8) {
+          await sleep(2500);
           attempts++;
-          const userProfile = await sw.getUserProfile(session.spinwheelUserId);
-          const userObj = Array.isArray(userProfile) ? userProfile[0] : userProfile;
-          const all = [
-            ...(userObj.creditCards || []),
-            ...(userObj.autoLoans || []),
-            ...(userObj.studentLoans || []),
-            ...(userObj.personalLoans || []),
-          ];
-          const liability = all.find(l =>
-            l.creditCardId === liability_id || l.autoLoanId === liability_id ||
-            l.studentLoanId === liability_id || l.personalLoanId === liability_id
-          );
-          if (liability?.balanceDetails) {
+          const profile = await sw.getUserProfile(session.spinwheelUserId);
+          const obj = Array.isArray(profile) ? profile[0] : profile;
+          const card = findLiability(obj, liability_id);
+          const updatedOn = card?.balanceDetails?.updatedOn || 0;
+          if (updatedOn > beforeUpdatedOn) {
             return {
               content: [{
                 type: 'text',
                 text: JSON.stringify({
                   status: 'completed',
-                  balance: liability.balanceDetails.outstandingBalance
-                    || liability.balanceDetails.currentBalance
-                    || liability.cardProfile?.currentBalance,
-                  available_credit: liability.balanceDetails.availableCredit,
-                  min_payment_due: liability.balanceDetails.minimumPaymentDue,
-                  updated_at: liability.balanceDetails.updatedOn || new Date().toISOString(),
+                  balance: card.balanceDetails.outstandingBalance
+                    ?? card.balanceDetails.currentBalance
+                    ?? card.cardProfile?.currentBalance,
+                  available_credit: card.balanceDetails.availableCredit ?? card.cardProfile?.availableCreditDerived,
+                  min_payment_due: card.balanceDetails.minimumPaymentDue,
+                  last_payment_amount: card.balanceDetails.lastPaymentAmount,
+                  last_payment_date: card.balanceDetails.lastPaymentDate,
+                  updated_at: new Date(updatedOn).toISOString(),
+                  poll_attempts: attempts,
                 }),
               }],
             };
           }
         }
-        return { content: [{ type: 'text', text: '{"status":"pending","message":"Still processing. Use cached balance."}' }] };
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              status: 'timeout',
+              message: `Refresh was accepted by Spinwheel but no fresh balance arrived within ${attempts * 2.5}s. The cached balance from the credit report is $${beforeCard.balanceDetails?.outstandingBalance}. Spinwheel POST response: ${JSON.stringify(refreshResp)}`,
+            }),
+          }],
+        };
       } catch (err) {
-        return { content: [{ type: 'text', text: `Refresh error: ${err.message}` }], isError: true };
+        return {
+          content: [{ type: 'text', text: `Unexpected refresh error: ${err.message} (stack: ${err.stack?.split('\n')[0] || 'n/a'})` }],
+          isError: true,
+        };
       }
     }
   );
@@ -469,6 +527,24 @@ function mountMcpOnExpress(app) {
 // ── Helpers ──
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+function findLiability(userObj, liability_id) {
+  if (!userObj) return null;
+  const all = [
+    ...(userObj.creditCards || []),
+    ...(userObj.autoLoans || []),
+    ...(userObj.studentLoans || []),
+    ...(userObj.personalLoans || []),
+    ...(userObj.homeLoans || []),
+  ];
+  return all.find(l =>
+    l.creditCardId === liability_id ||
+    l.autoLoanId === liability_id ||
+    l.studentLoanId === liability_id ||
+    l.personalLoanId === liability_id ||
+    l.homeLoanId === liability_id
+  ) || null;
+}
+
 function normalizeDOB(dob) {
   if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dob)) {
     const [, y, m, d] = dob.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
@@ -537,7 +613,9 @@ function transformDebtProfile(userData) {
       min_payment: card.cardProfile?.minimumPaymentDue || card.balanceDetails?.minimumPaymentDue || null,
       apr: card.cardProfile?.interestRate || null,
       status: card.cardProfile?.status || 'UNKNOWN',
-      can_refresh_balance: card.capabilities?.data?.realtimeBalance?.availability === 'SUPPORTED',
+      can_refresh_balance: card.capabilities?.data?.realtimeBalance?.availability === 'SUPPORTED'
+        || card.capabilities?.realtimeBalance?.availability === 'SUPPORTED'
+        || card.capabilities?.data?.realtimeBalance?.supported === true,
       selectable: (card.cardProfile?.status === 'OPEN') && bal > 0,
     };
   });

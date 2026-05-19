@@ -80,9 +80,11 @@ async function getUserProfile(userId) {
 }
 
 async function refreshLiabilityBalance(userId, liabilityId) {
-  return spinwheelFetch(`/${userId}/liabilities/${liabilityId}/refresh`, {
+  const resp = await spinwheelFetch(`/${userId}/liabilities/${liabilityId}/refresh`, {
     method: 'POST',
   });
+  console.log(`[spinwheel] refresh POST ${liabilityId} ->`, JSON.stringify(resp));
+  return resp;
 }
 
 async function getRefreshStatus(userId, liabilityId, refreshId) {
