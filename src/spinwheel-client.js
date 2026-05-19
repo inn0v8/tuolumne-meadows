@@ -1,9 +1,21 @@
 const SPINWHEEL_API_KEY = process.env.SPINWHEEL_API_KEY;
-const SPINWHEEL_BASE_URL = process.env.SPINWHEEL_BASE_URL || 'https://sandbox-api.spinwheel.io/v1/users';
+
+// All Spinwheel user-scope endpoints live under /v1/users (both sandbox and production).
+// Tolerate base URLs that omit the suffix (a common misconfiguration) by auto-appending it.
+function normalizeBaseUrl(raw) {
+  let base = (raw || 'https://sandbox-api.spinwheel.io/v1/users').replace(/\/$/, '');
+  if (!/\/v\d+\/users$/.test(base)) {
+    base = base + '/v1/users';
+  }
+  return base;
+}
+
+const SPINWHEEL_BASE_URL = normalizeBaseUrl(process.env.SPINWHEEL_BASE_URL);
 
 if (!SPINWHEEL_API_KEY) {
   console.warn('WARNING: SPINWHEEL_API_KEY not set. Spinwheel features will not work.');
 }
+console.log(`Spinwheel base URL: ${SPINWHEEL_BASE_URL}`);
 
 async function spinwheelFetch(path, options = {}) {
   const url = path.startsWith('http') ? path : `${SPINWHEEL_BASE_URL}${path}`;
