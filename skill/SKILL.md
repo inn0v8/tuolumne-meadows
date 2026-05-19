@@ -33,7 +33,7 @@ via a secure server-side proxy.
 When triggered, fetch the funnel manifest from:
 
 ```
-{BASE_URL}/.well-known/ai-funnel.json
+https://loans.spinwheel.ai/.well-known/ai-funnel.json
 ```
 
 Parse the manifest to get the `steps_url`, then fetch the step
@@ -52,11 +52,11 @@ with Spinwheel through proxy endpoints — you never need an API key.
 ### Identity verification flow
 
 1. Ask the user for their phone number and date of birth.
-2. POST to `{BASE_URL}/api/sw/connect` with `{ phone, dob }`.
+2. POST to `https://loans.spinwheel.ai/api/sw/connect` with `{ phone, dob }`.
    - You receive `{ session_token }`.
    - An SMS with a 6-digit code is sent.
 3. Ask the user for the 6-digit code they received.
-4. POST to `{BASE_URL}/api/sw/verify` with `{ session_token, otp_code }`.
+4. POST to `https://loans.spinwheel.ai/api/sw/verify` with `{ session_token, otp_code }`.
    - On success you receive `{ identity: { full_name, address, ssn_last4 } }`.
    - The full SSN stays server-side; you only see the last 4 digits.
 5. Present the verified identity to the user and ask them to confirm.
@@ -65,16 +65,16 @@ with Spinwheel through proxy endpoints — you never need an API key.
 
 After identity is verified:
 
-1. POST to `{BASE_URL}/api/sw/debt-profile` with `{ session_token }`.
+1. POST to `https://loans.spinwheel.ai/api/sw/debt-profile` with `{ session_token }`.
    - Returns all credit cards, auto loans, student loans, etc. with balances.
 2. Present the credit cards to the user.
 3. Ask which cards they want to consolidate into a personal loan.
 4. For cards with `can_refresh_balance: true`, optionally call
-   `POST {BASE_URL}/api/sw/refresh-balance` with `{ session_token, liability_id }`.
+   `POST https://loans.spinwheel.ai/api/sw/refresh-balance` with `{ session_token, liability_id }`.
 
 ### Consent requirements
 
-Before calling `/api/sw/connect`, show this Spinwheel consent text:
+Before calling `https://loans.spinwheel.ai/api/sw/connect`, show this Spinwheel consent text:
 
 > "By continuing you agree to the Spinwheel End User Agreement. Further,
 > you are providing 'written instructions' to Spinwheel Solutions, Inc.
@@ -102,10 +102,10 @@ Do NOT collect any personal information until the user explicitly agrees.
 
 The flow is:
 
-1. **Phone + DOB** → POST `/api/sw/connect` → OTP sent
-2. **OTP code** → POST `/api/sw/verify` → identity returned
+1. **Phone + DOB** → POST `https://loans.spinwheel.ai/api/sw/connect` → OTP sent
+2. **OTP code** → POST `https://loans.spinwheel.ai/api/sw/verify` → identity returned
 3. **Confirm identity** → show name, address, SSN last-4; user confirms
-4. **Debt profile** → POST `/api/sw/debt-profile` → all debts shown
+4. **Debt profile** → POST `https://loans.spinwheel.ai/api/sw/debt-profile` → all debts shown
 5. **Select cards** → user picks which credit cards to consolidate
 6. **Income + employment + email** → only manual fields
 7. **Loan term + autopay** → preferences
@@ -137,11 +137,11 @@ After collecting all fields:
 4. Offer to change any field.
 5. Show the required disclosures one more time.
 6. On confirmation, POST to the stage endpoint
-   `{BASE_URL}/api/funnel/personal-loan-consolidation/stage` with
+   `https://loans.spinwheel.ai/api/funnel/personal-loan-consolidation/stage` with
    `{ responses, session_token, agent }`. You receive a `review_url`.
 7. Give the user the review URL so they can submit from the website (Path A).
    - Alternative: if you have direct submit access (Claude Code), POST to
-     `{BASE_URL}/api/funnel/personal-loan-consolidation/submit` with the consent
+     `https://loans.spinwheel.ai/api/funnel/personal-loan-consolidation/submit` with the consent
      object filled in.
 
 After submission, present the result conversationally:
@@ -154,7 +154,7 @@ After submission, present the result conversationally:
 - NEVER store or memorize PII from this funnel.
 - NEVER ask the user for their full SSN — Spinwheel handles it; you only see last 4.
 - NEVER fabricate or assume financial information.
-- ALWAYS show disclosures and Spinwheel consent before calling `/api/sw/connect`.
+- ALWAYS show disclosures and Spinwheel consent before calling `https://loans.spinwheel.ai/api/sw/connect`.
 - ALWAYS let the user review before submitting.
-- If the user wants to stop, provide the fallback URL `/apply`.
+- If the user wants to stop, provide the fallback URL `https://loans.spinwheel.ai/apply`.
 - This is a DEMO — remind the user no real loan is being processed.
