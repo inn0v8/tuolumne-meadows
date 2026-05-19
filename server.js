@@ -63,6 +63,6 @@ app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })
 app.use('/', pageRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Horizon Personal Loans running at ${BASE_URL}`);
+  console.log(`Happen Bank running at ${BASE_URL}`);
   console.log(`Manifest: ${BASE_URL}/.well-known/ai-funnel.json`);
 });

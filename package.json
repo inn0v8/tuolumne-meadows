@@ -1,5 +1,5 @@
 {
-  "name": "horizon-home-loans",
+  "name": "happen-bank",
   "version": "1.0.0",
   "description": "Demo lending site implementing the AI Application Funnel Protocol with Spinwheel integration",
   "main": "server.js",

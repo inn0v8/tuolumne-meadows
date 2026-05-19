@@ -1,6 +1,6 @@
 ---
-name: horizon-person-loans-prequal
-description: Guide users through a personal-loan credit-card consolidation pre-qualification with Horizon Home Loans. Trigger when the user mentions Horizon Home Loans, horizonloans, asks to consolidate credit card debt, or asks to apply for a personal loan at a Horizon URL. Also trigger when Claude discovers an ai-funnel.json manifest at a URL the user provides.
+name: happen-bank-personal-loan-prequal
+description: Guide users through a personal-loan credit-card consolidation pre-qualification with Happen Bank. Trigger when the user mentions Happen Bank, happenbank, asks to consolidate credit card debt, or asks to apply for a personal loan at a Happen Bank URL. Also trigger when Claude discovers an ai-funnel.json manifest at a URL the user provides.
 ---
 
 ## CRITICAL: Required flow
@@ -18,12 +18,12 @@ The ONLY information you should ask the user to type manually is:
 
 Everything else comes from Spinwheel. Follow the CRITICAL_FLOW_ORDER in the manifest exactly.
 
-# Horizon Home Loans — Personal Loan Consolidation (Spinwheel-enabled)
+# Happen Bank — Personal Loan Consolidation (Spinwheel-enabled)
 
 ## Overview
 
 This skill enables Claude to conduct a personal-loan-for-credit-card-consolidation
-pre-qualification with Horizon Home Loans through natural conversation, instead
+pre-qualification with Happen Bank through natural conversation, instead
 of sending the user to fill out a web form. Identity verification, address,
 SSN-last-4, debts, and credit score are pulled automatically through Spinwheel
 via a secure server-side proxy.
@@ -46,7 +46,7 @@ Spinwheel proxy endpoints.
 ## Spinwheel integration
 
 This funnel uses Spinwheel for identity verification and debt profiling.
-The Spinwheel API key is held securely by the Horizon server. You interact
+The Spinwheel API key is held securely by the Happen Bank server. You interact
 with Spinwheel through proxy endpoints — you never need an API key.
 
 ### Identity verification flow
@@ -81,7 +81,7 @@ Before calling `/api/sw/connect`, show this Spinwheel consent text:
 > authorizing it to obtain your credit profile from any consumer reporting
 > agency."
 
-This is in **addition** to the Horizon funnel disclosures from the manifest.
+This is in **addition** to the Happen Bank funnel disclosures from the manifest.
 
 ## Conversation flow
 
