@@ -31,7 +31,7 @@ This repo includes `render.yaml`. Deploy via Render Blueprint:
 2. In Render → New → Blueprint → connect the GitHub repo.
 3. After the service is created, set these env vars in the Render dashboard:
    - `SPINWHEEL_API_KEY` — your Spinwheel sandbox key
-   - `BASE_URL` — the assigned Render URL (e.g. `https://horizon-personal-loans.onrender.com`)
+   - `BASE_URL` — the public URL (e.g. `https://loans.spinwheel.ai`)
 4. Trigger a redeploy after setting env vars.
 
 ## Testing with curl
