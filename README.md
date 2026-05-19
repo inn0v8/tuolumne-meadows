@@ -1,4 +1,4 @@
-# Happen Bank (AAFP + Spinwheel demo)
+# Spinwheel Personal Loans (AAFP + Spinwheel demo)
 
 Demo lending site implementing the **AI Application Funnel Protocol (AAFP)** with
 **Spinwheel Connect SMS** for identity verification and debt profile retrieval.

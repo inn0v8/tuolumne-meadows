@@ -4,12 +4,12 @@
   "base_url": "https://horizon-personal-loans.onrender.com",
   "skill_url": "/skill/SKILL.md",
   "provider": {
-    "name": "Happen Bank",
-    "tagline": "Make it happen with a personal loan",
+    "name": "Spinwheel Personal Loans",
+    "tagline": "Prequalified in seconds, not days",
     "logo": "/images/logo.svg",
-    "legal_entity": "Horizon Financial Services Inc. (dba Happen Bank)",
+    "legal_entity": "Spinwheel Solutions, Inc.",
     "regulatory_ids": { "nmls": "9999999" },
-    "support_email": "support@happenbank.demo",
+    "support_email": "support@spinwheelloans.demo",
     "support_phone": "1-800-555-0199"
   },
   "identity_verification": {
