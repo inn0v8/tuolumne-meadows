@@ -29,7 +29,7 @@ router.post('/connect', async (req, res) => {
     }
 
     const sessionToken = uuidv4();
-    const extUserId = `horizon-${uuidv4()}`;
+    const extUserId = `spl-${uuidv4()}`;
 
     const result = await sw.connectSMS(phoneNumber, dobNormalized, extUserId);
 
