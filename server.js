@@ -36,21 +36,35 @@ app.use((req, res, next) => {
   next();
 });
 
+// The manifest and skill files are read by AI agents and updated frequently.
+// Force every cache layer (browser, CDN, Claude's web_fetch cache, etc.) to
+// refetch on every request so agents see the current version immediately.
+const NO_STORE = 'no-store, max-age=0, must-revalidate';
+
 app.use('/.well-known', express.static(
   path.join(__dirname, 'public', '.well-known'),
   {
+    etag: false,
+    lastModified: false,
     setHeaders: (res) => {
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', NO_STORE);
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     },
   }
 ));
 
 app.use('/skill', express.static(path.join(__dirname, 'public', 'skill'), {
+  etag: false,
+  lastModified: false,
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.md')) {
       res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
     }
+    res.setHeader('Cache-Control', NO_STORE);
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
   },
 }));
 
