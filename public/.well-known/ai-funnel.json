@@ -3,6 +3,12 @@
   "version": "1.1",
   "base_url": "https://loans.spinwheel.ai",
   "skill_url": "https://loans.spinwheel.ai/skill/SKILL.md",
+  "installable_skill": {
+    "download_url": "https://loans.spinwheel.ai/skill/spinwheel-personal-loans.skill.md",
+    "format": "claude-skill-md",
+    "description": "Downloadable skill file for Claude. Once installed, Claude proactively offers the debt consolidation funnel when users discuss credit card debt.",
+    "install_instructions": "Download the file and add it as a custom skill in Claude Settings, or place it in your Claude skills directory."
+  },
   "provider": {
     "name": "Spinwheel Personal Loans",
     "tagline": "Prequalified in seconds, not days",

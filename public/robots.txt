@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Allow: /skill/
+Allow: /.well-known/
+
+Sitemap: https://loans.spinwheel.ai/sitemap.xml

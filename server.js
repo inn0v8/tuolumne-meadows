@@ -46,7 +46,7 @@ app.use('/.well-known', express.static(
   }
 ));
 
-app.use('/skill', express.static(path.join(__dirname, 'skill'), {
+app.use('/skill', express.static(path.join(__dirname, 'public', 'skill'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.md')) {
       res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
