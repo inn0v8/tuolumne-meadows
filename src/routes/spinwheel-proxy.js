@@ -178,9 +178,10 @@ router.post('/refresh-balance', async (req, res) => {
     }
 
     // Trigger the refresh and surface any Spinwheel-side rejection in full.
+    const extRequestId = `refresh-${uuidv4()}`;
     let refreshResp;
     try {
-      refreshResp = await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id);
+      refreshResp = await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id, extRequestId);
     } catch (apiErr) {
       return res.status(apiErr.status || 502).json({
         error: 'Spinwheel rejected the refresh request.',

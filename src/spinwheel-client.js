@@ -79,16 +79,28 @@ async function getUserProfile(userId) {
   return spinwheelFetch(`?userId=${userId}`, { method: 'GET' });
 }
 
-async function refreshLiabilityBalance(userId, liabilityId) {
-  const resp = await spinwheelFetch(`/${userId}/liabilities/${liabilityId}/refresh`, {
+// Spinwheel's refresh endpoint is a batch POST at /v1/users/{userId}/liabilities/refresh.
+// Body shape: { extRequestId, creditCards: [{ id: [<cardId>], capabilities: ["REALTIME_BALANCE"] }] }.
+// Per Spinwheel's validation messages: id is an array of UUIDs, capabilities is an array
+// of enum values from { "REALTIME_BALANCE", "STATEMENT_SUMMARY" }.
+async function refreshLiabilityBalance(userId, creditCardId, extRequestId) {
+  const body = {
+    extRequestId,
+    creditCards: [{
+      id: [creditCardId],
+      capabilities: ['REALTIME_BALANCE'],
+    }],
+  };
+  const resp = await spinwheelFetch(`/${userId}/liabilities/refresh`, {
     method: 'POST',
+    body: JSON.stringify(body),
   });
-  console.log(`[spinwheel] refresh POST ${liabilityId} ->`, JSON.stringify(resp));
+  console.log(`[spinwheel] refresh POST cardId=${creditCardId} extRequestId=${extRequestId} ->`, JSON.stringify(resp));
   return resp;
 }
 
-async function getRefreshStatus(userId, liabilityId, refreshId) {
-  return spinwheelFetch(`/${userId}/liabilities/${liabilityId}/refresh/${refreshId}`, {
+async function getRefreshStatus(userId, extRequestId) {
+  return spinwheelFetch(`/${userId}/liabilities/refresh/${extRequestId}`, {
     method: 'GET',
   });
 }

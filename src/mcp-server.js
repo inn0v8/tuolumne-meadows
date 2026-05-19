@@ -283,9 +283,10 @@ function createMcpServer() {
         }
 
         // Step 2: trigger the refresh.
+        const extRequestId = `refresh-${uuidv4()}`;
         let refreshResp;
         try {
-          refreshResp = await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id);
+          refreshResp = await sw.refreshLiabilityBalance(session.spinwheelUserId, liability_id, extRequestId);
         } catch (apiErr) {
           return {
             content: [{
