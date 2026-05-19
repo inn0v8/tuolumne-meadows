@@ -1,4 +1,5 @@
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 const { SSEServerTransport } = require('@modelcontextprotocol/sdk/server/sse.js');
 const { z } = require('zod');
 const { v4: uuidv4 } = require('uuid');
@@ -411,30 +412,57 @@ function createMcpServer() {
 }
 
 
-// ── Mount on Express via SSE ──
+// ── Mount on Express ──
+// Primary: Streamable HTTP at /mcp (the current MCP spec transport — required by
+// Claude.ai's hosted Custom Connectors and the MCP Inspector's "Streamable HTTP" mode).
+// Legacy: SSE at /mcp/sse for older MCP Inspector configurations.
 function mountMcpOnExpress(app) {
-  const server = createMcpServer();
-  const transports = {};
-
-  app.get('/mcp', async (req, res) => {
-    const transport = new SSEServerTransport('/mcp', res);
-    const sessionId = transport.sessionId;
-    transports[sessionId] = transport;
-    res.on('close', () => { delete transports[sessionId]; });
-    await server.connect(transport);
+  // ─── Streamable HTTP (stateless) at /mcp ───
+  // Stateless: build a fresh server+transport per request. Tool registrations are
+  // pure (no I/O), so the per-request cost is negligible. Server-side mutable state
+  // (the store module's Maps) is shared across calls.
+  app.all('/mcp', async (req, res) => {
+    try {
+      const server = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      res.on('close', () => { transport.close(); server.close(); });
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      console.error('MCP /mcp error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: err.message || 'Internal error' },
+          id: null,
+        });
+      }
+    }
   });
 
-  app.post('/mcp', async (req, res) => {
+  // ─── Legacy SSE at /mcp/sse ───
+  const sseServer = createMcpServer();
+  const sseTransports = {};
+
+  app.get('/mcp/sse', async (req, res) => {
+    const transport = new SSEServerTransport('/mcp/sse', res);
+    const sessionId = transport.sessionId;
+    sseTransports[sessionId] = transport;
+    res.on('close', () => { delete sseTransports[sessionId]; });
+    await sseServer.connect(transport);
+  });
+
+  app.post('/mcp/sse', async (req, res) => {
     const sessionId = req.query.sessionId;
-    const transport = transports[sessionId];
+    const transport = sseTransports[sessionId];
     if (!transport) {
-      return res.status(400).json({ error: 'No active SSE session. Connect via GET /mcp first.' });
+      return res.status(400).json({ error: 'No active SSE session. Connect via GET /mcp/sse first.' });
     }
     await transport.handlePostMessage(req, res, req.body);
   });
 
-  console.log('MCP server mounted at /mcp (SSE transport)');
-  return server;
+  console.log('MCP server mounted: /mcp (Streamable HTTP) + /mcp/sse (legacy SSE)');
+  return sseServer;
 }
 
 
