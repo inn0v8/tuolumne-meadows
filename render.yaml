@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: horizon-personal-loans
+    name: spinwheel-personal-loans
     runtime: node
     plan: free
     buildCommand: npm install
