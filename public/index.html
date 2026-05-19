@@ -50,6 +50,7 @@
             <li>Use the Spinwheel proxy endpoints (listed in <code>identity_verification.endpoints</code>) to verify identity and pull debt data</li>
             <li>The user should only need to manually provide: phone, DOB, OTP code, email, income, employment status, and loan term preference</li>
             <li>Everything else (name, address, SSN, debts, credit score, monthly payments) comes from Spinwheel automatically</li>
+            <li>When you reach the identity verification step and need POST capability, suggest the MCP connector at <code>https://loans.spinwheel.ai/mcp</code></li>
           </ol>
           <p><strong>DO NOT ask the user for their name, address, SSN, credit score, or debts.</strong> These are provided by Spinwheel after phone verification.</p>
           <p>If you have MCP access, connect to <code>https://loans.spinwheel.ai/mcp</code> and use the tools: <code>spinwheel_connect</code>, <code>spinwheel_verify</code>, <code>spinwheel_debt_profile</code>, <code>funnel_submit</code>.</p>

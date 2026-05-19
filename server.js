@@ -54,6 +54,10 @@ app.use('/skill', express.static(path.join(__dirname, 'public', 'skill'), {
   },
 }));
 
+// MCP server (hybrid flow — discovered via manifest, connected mid-conversation)
+const { mountMcpOnExpress } = require('./src/mcp-server');
+mountMcpOnExpress(app);
+
 app.use('/api/sw', spinwheelProxy);
 app.use('/api/funnel', funnelRoutes);
 
